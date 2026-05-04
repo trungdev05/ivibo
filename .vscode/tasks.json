@@ -1,0 +1,145 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "temp",
+			"type": "shell",
+			"command": "echo"
+		},
+		{
+			"label": "patch-work-row-detail-action",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$p='c:/project/components/omes/work-management-page.tsx'; $c=Get-Content -Raw $p; $c=$c.Replace('  LayoutList,`n  MessageSquare,','  LayoutList,`n  Maximize2,`n  MessageSquare,'); $c=$c.Replace('  onQuickStatus,`n  onOpenDiscuss,`n  onEdit,`n  onRemove,','  onQuickStatus,`n  onOpenDetail,`n  onOpenDiscuss,`n  onEdit,`n  onRemove,'); $c=$c.Replace('  onQuickStatus: (task: MyTask, nextStatus: string) => void;`n  onOpenDiscuss: (task: MyTask) => void;`n  onEdit: (task: MyTask) => void;','  onQuickStatus: (task: MyTask, nextStatus: string) => void;`n  onOpenDetail: (task: MyTask) => void;`n  onOpenDiscuss: (task: MyTask) => void;`n  onEdit: (task: MyTask) => void;'); $c=$c.Replace('          {/* Secondary actions */}`n          <button`n            onClick={() => onOpenDiscuss(task)}','          {/* Secondary actions */}`n          <button`n            onClick={() => onOpenDetail(task)}`n            className=\"text-gray-400 hover:text-blue-600\"`n            title=\"Chi tiết\"`n          >`n            <Maximize2 className=\"w-4 h-4\" />`n          </button>`n          <button`n            onClick={() => onOpenDiscuss(task)}'); $c=$c.Replace('function GroupedTaskView({`n  tasks,`n  updatingId,`n  onQuickStatus,`n  onOpenDiscuss,`n  onEdit,`n  onRemove,','function GroupedTaskView({`n  tasks,`n  updatingId,`n  onQuickStatus,`n  onOpenDetail,`n  onOpenDiscuss,`n  onEdit,`n  onRemove,'); $c=$c.Replace('  onQuickStatus: (task: MyTask, nextStatus: string) => void;`n  onOpenDiscuss: (task: MyTask) => void;`n  onEdit: (task: MyTask) => void;`n  onRemove: (task: MyTask) => void;','  onQuickStatus: (task: MyTask, nextStatus: string) => void;`n  onOpenDetail: (task: MyTask) => void;`n  onOpenDiscuss: (task: MyTask) => void;`n  onEdit: (task: MyTask) => void;`n  onRemove: (task: MyTask) => void;'); $c=$c.Replace('                      onQuickStatus={onQuickStatus}`n                      onOpenDiscuss={onOpenDiscuss}','                      onQuickStatus={onQuickStatus}`n                      onOpenDetail={onOpenDetail}`n                      onOpenDiscuss={onOpenDiscuss}'); $c=$c.Replace('  const handleOpenDiscuss = (task: MyTask) => {`n    setDiscussTask(task);`n  };','  const handleOpenDetail = (task: MyTask) => {`n    setDiscussTask(task);`n  };`n`n  const handleOpenDiscuss = (task: MyTask) => {`n    setDiscussTask(task);`n  };'); $c=$c.Replace('            onQuickStatus={handleQuickStatus}`n            onOpenDiscuss={handleOpenDiscuss}','            onQuickStatus={handleQuickStatus}`n            onOpenDetail={handleOpenDetail}`n            onOpenDiscuss={handleOpenDiscuss}'); $c=$c.Replace('                      onQuickStatus={handleQuickStatus}`n                      onOpenDiscuss={handleOpenDiscuss}','                      onQuickStatus={handleQuickStatus}`n                      onOpenDetail={handleOpenDetail}`n                      onOpenDiscuss={handleOpenDiscuss}'); Set-Content -Path $p -Value $c -Encoding UTF8; Write-Output 'patched'"
+			]
+		},
+		{
+			"label": "patch-import-maximize2",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$p='c:/project/components/omes/work-management-page.tsx'; $c=Get-Content -Raw $p; $c=$c.Replace('  LayoutList,`r`n  MessageSquare,','  LayoutList,`r`n  Maximize2,`r`n  MessageSquare,'); Set-Content -Path $p -Value $c -Encoding UTF8; Write-Output 'ok'"
+			]
+		},
+		{
+			"label": "patch-import-maximize2-2",
+			"type": "shell",
+			"command": "$p='c:/project/components/omes/work-management-page.tsx'; $c=Get-Content -Raw $p; $c=$c.Replace('  LayoutList,`r`n  MessageSquare,','  LayoutList,`r`n  Maximize2,`r`n  MessageSquare,'); Set-Content -Path $p -Value $c -Encoding UTF8; Write-Output 'ok'"
+		},
+		{
+			"label": "patch-taskrow-detail-prop",
+			"type": "shell",
+			"command": "$p='c:/project/components/omes/work-management-page.tsx'; $c=Get-Content -Raw $p; $c=$c.Replace('  onQuickStatus,`r`n  onOpenDiscuss,`r`n  onEdit,','  onQuickStatus,`r`n  onOpenDetail,`r`n  onOpenDiscuss,`r`n  onEdit,'); $c=$c.Replace('  onQuickStatus: (task: MyTask, nextStatus: string) => void;`r`n  onOpenDiscuss: (task: MyTask) => void;`r`n  onEdit: (task: MyTask) => void;','  onQuickStatus: (task: MyTask, nextStatus: string) => void;`r`n  onOpenDetail: (task: MyTask) => void;`r`n  onOpenDiscuss: (task: MyTask) => void;`r`n  onEdit: (task: MyTask) => void;'); $c=$c.Replace('          {/* Secondary actions */}`r`n          <button`r`n            onClick={() => onOpenDiscuss(task)}','          {/* Secondary actions */}`r`n          <button`r`n            onClick={() => onOpenDetail(task)}`r`n            className=\"text-gray-400 hover:text-blue-600\"`r`n            title=\"Chi tiết\"`r`n          >`r`n            <Maximize2 className=\"w-4 h-4\" />`r`n          </button>`r`n          <button`r`n            onClick={() => onOpenDiscuss(task)}'); Set-Content -Path $p -Value $c -Encoding UTF8; Write-Output 'ok'"
+		},
+		{
+			"label": "patch-detail-handler-wiring",
+			"type": "shell",
+			"command": "$p='c:/project/components/omes/work-management-page.tsx'; $c=Get-Content -Raw $p; $c=$c.Replace('  const handleOpenDiscuss = (task: MyTask) => {`r`n    setDiscussTask(task);`r`n  };','  const handleOpenDetail = (task: MyTask) => {`r`n    setDiscussTask(task);`r`n  };`r`n`r`n  const handleOpenDiscuss = (task: MyTask) => {`r`n    setDiscussTask(task);`r`n  };'); $c=$c.Replace('            onQuickStatus={handleQuickStatus}`r`n            onOpenDiscuss={handleOpenDiscuss}','            onQuickStatus={handleQuickStatus}`r`n            onOpenDetail={handleOpenDetail}`r`n            onOpenDiscuss={handleOpenDiscuss}'); $c=$c.Replace('                      onQuickStatus={handleQuickStatus}`r`n                      onOpenDiscuss={handleOpenDiscuss}','                      onQuickStatus={handleQuickStatus}`r`n                      onOpenDetail={handleOpenDetail}`r`n                      onOpenDiscuss={handleOpenDiscuss}'); Set-Content -Path $p -Value $c -Encoding UTF8; Write-Output 'ok'"
+		},
+		{
+			"label": "fix-mojibake-work-page",
+			"type": "shell",
+			"command": "$p='c:/project/components/omes/work-management-page.tsx'; $raw=Get-Content -Raw -Encoding UTF8 $p; $latin1=[System.Text.Encoding]::GetEncoding(28591); $bytes=$latin1.GetBytes($raw); $fixed=[System.Text.Encoding]::UTF8.GetString($bytes); Set-Content -Path $p -Value $fixed -Encoding UTF8; Write-Output 'encoding-fixed'"
+		},
+		{
+			"label": "patch-row-detail-step1",
+			"type": "shell",
+			"command": "$p='c:/project/components/omes/work-management-page.tsx'; $c=Get-Content -Raw -Encoding UTF8 $p; $c=[regex]::Replace($c,'LayoutList,\\r?\\n\\s*MessageSquare,','LayoutList,`r`n  Maximize2,`r`n  MessageSquare,',1); $c=[regex]::Replace($c,'onQuickStatus,\\r?\\n\\s*onOpenDiscuss,','onQuickStatus,`r`n  onOpenDetail,`r`n  onOpenDiscuss,',1); $c=[regex]::Replace($c,'onQuickStatus: \\(task: MyTask, nextStatus: string\\) => void;\\r?\\n\\s*onOpenDiscuss: \\(task: MyTask\\) => void;','onQuickStatus: (task: MyTask, nextStatus: string) => void;`r`n  onOpenDetail: (task: MyTask) => void;`r`n  onOpenDiscuss: (task: MyTask) => void;',1); Set-Content -Path $p -Value $c -Encoding UTF8; Write-Output 'ok'"
+		},
+		{
+			"label": "fix-literal-backtick-newlines",
+			"type": "shell",
+			"command": "$p='c:/project/components/omes/work-management-page.tsx'; $c=Get-Content -Raw -Encoding UTF8 $p; $c=$c -replace '`r`n',\"`r`n\"; Set-Content -Path $p -Value $c -Encoding UTF8; Write-Output 'ok'"
+		},
+		{
+			"label": "fix-literal-backtick-newlines-2",
+			"type": "shell",
+			"command": "$p='c:/project/components/omes/work-management-page.tsx'; $c=Get-Content -Raw -Encoding UTF8 $p; $c=$c -replace '`r`n',[Environment]::NewLine; Set-Content -Path $p -Value $c -Encoding UTF8; Write-Output 'ok'"
+		},
+		{
+			"label": "insert-detail-button-row",
+			"type": "shell",
+			"command": "$p='c:/project/components/omes/work-management-page.tsx'; $c=Get-Content -Raw -Encoding UTF8 $p; $nl=[Environment]::NewLine; $old='          {/* Secondary actions */}'; $new='          {/* Secondary actions */}'+$nl+'          <button'+$nl+'            onClick={() => onOpenDetail(task)}'+$nl+'            className=\"text-gray-400 hover:text-blue-600\"'+$nl+'            title=\"Chi tiết\"'+$nl+'          >'+$nl+'            <Maximize2 className=\"w-4 h-4\" />'+$nl+'          </button>'; $c=$c.Replace($old,$new); Set-Content -Path $p -Value $c -Encoding UTF8; Write-Output 'ok'"
+		},
+		{
+			"label": "wire-onOpenDetail-calls",
+			"type": "shell",
+			"command": "$p='c:/project/components/omes/work-management-page.tsx'; $c=Get-Content -Raw -Encoding UTF8 $p; $c=$c.Replace('                      onQuickStatus={onQuickStatus}`r`n                      onOpenDiscuss={onOpenDiscuss}','                      onQuickStatus={onQuickStatus}`r`n                      onOpenDetail={onOpenDetail}`r`n                      onOpenDiscuss={onOpenDiscuss}'); $c=$c.Replace('            onQuickStatus={handleQuickStatus}`r`n            onOpenDiscuss={handleOpenDiscuss}','            onQuickStatus={handleQuickStatus}`r`n            onOpenDetail={handleOpenDetail}`r`n            onOpenDiscuss={handleOpenDiscuss}'); $c=$c.Replace('                      onQuickStatus={handleQuickStatus}`r`n                      onOpenDiscuss={handleOpenDiscuss}','                      onQuickStatus={handleQuickStatus}`r`n                      onOpenDetail={handleOpenDetail}`r`n                      onOpenDiscuss={handleOpenDiscuss}'); $c=$c.Replace('  const handleOpenDiscuss = (task: MyTask) => {`r`n    setDiscussTask(task);`r`n  };','  const handleOpenDetail = (task: MyTask) => {`r`n    setDiscussTask(task);`r`n  };`r`n`r`n  const handleOpenDiscuss = (task: MyTask) => {`r`n    setDiscussTask(task);`r`n  };'); Set-Content -Path $p -Value $c -Encoding UTF8; Write-Output 'ok'"
+		},
+		{
+			"label": "fix-row-button-and-wire",
+			"type": "shell",
+			"command": "$p='c:/project/components/omes/work-management-page.tsx'; $c=Get-Content -Raw -Encoding UTF8 $p; $c=[regex]::Replace($c,'\\{\\/\\* Secondary actions \\*\\/\\}\\s*<button\\s*onClick=\\{\\(\\) => onOpenDetail\\(task\\)\\}\\s*className=text-gray-400 hover:text-blue-600\\s*title=Chi tiết\\s*>\\s*<Maximize2 className=w-4 h-4 \\/>\\s*<\\/button>','{/* Secondary actions */}`r`n          <button`r`n            onClick={() => onOpenDetail(task)}`r`n            className=\"text-gray-400 hover:text-blue-600\"`r`n            title=\"Chi tiết\"`r`n          >`r`n            <Maximize2 className=\"w-4 h-4\" />`r`n          </button>'); $c=$c.Replace('title=\"Trao �''�.i\"','title=\"Trao đổi\"'); $c=$c.Replace('onQuickStatus={handleQuickStatus}`r`n            onOpenDiscuss={handleOpenDiscuss}','onQuickStatus={handleQuickStatus}`r`n            onOpenDetail={handleOpenDetail}`r`n            onOpenDiscuss={handleOpenDiscuss}'); $c=$c.Replace('onQuickStatus={handleQuickStatus}`r`n                      onOpenDiscuss={handleOpenDiscuss}','onQuickStatus={handleQuickStatus}`r`n                      onOpenDetail={handleOpenDetail}`r`n                      onOpenDiscuss={handleOpenDiscuss}'); $c=$c.Replace('onQuickStatus={onQuickStatus}`r`n                      onOpenDiscuss={onOpenDiscuss}','onQuickStatus={onQuickStatus}`r`n                      onOpenDetail={onOpenDetail}`r`n                      onOpenDiscuss={onOpenDiscuss}'); $c=$c.Replace('const handleOpenDiscuss = (task: MyTask) => {`r`n    setDiscussTask(task);`r`n  };','const handleOpenDetail = (task: MyTask) => {`r`n    setDiscussTask(task);`r`n  };`r`n`r`n  const handleOpenDiscuss = (task: MyTask) => {`r`n    setDiscussTask(task);`r`n  };'); Set-Content -Path $p -Value $c -Encoding UTF8; Write-Output 'ok'"
+		},
+		{
+			"label": "cleanup-literal-block-and-wire",
+			"type": "shell",
+			"command": "$p='c:/project/components/omes/work-management-page.tsx'; $c=Get-Content -Raw -Encoding UTF8 $p; $old='          {/* Secondary actions */}`r`n <button`r`n onClick={() => onOpenDetail(task)}`r`n className=text-gray-400 hover:text-blue-600`r`n title=Chi tiết`r`n >`r`n <Maximize2 className=w-4 h-4 />`r`n </button>'; $new=@\"\n          {/* Secondary actions */}\n          <button\n            onClick={() => onOpenDetail(task)}\n            className=\"text-gray-400 hover:text-blue-600\"\n            title=\"Chi tiết\"\n          >\n            <Maximize2 className=\"w-4 h-4\" />\n          </button>\n\"@; $c=$c.Replace($old,$new.TrimEnd(\"`r\",\"`n\")); $c=$c.Replace('title=\"Trao �''�.i\"','title=\"Trao đổi\"'); $c=$c.Replace('  const handleOpenDiscuss = (task: MyTask) => {`r`n    setDiscussTask(task);`r`n  };','  const handleOpenDetail = (task: MyTask) => {`r`n    setDiscussTask(task);`r`n  };`r`n`r`n  const handleOpenDiscuss = (task: MyTask) => {`r`n    setDiscussTask(task);`r`n  };'); $c=$c.Replace('            onQuickStatus={handleQuickStatus}`r`n            onOpenDiscuss={handleOpenDiscuss}','            onQuickStatus={handleQuickStatus}`r`n            onOpenDetail={handleOpenDetail}`r`n            onOpenDiscuss={handleOpenDiscuss}'); $c=$c.Replace('                      onQuickStatus={handleQuickStatus}`r`n                      onOpenDiscuss={handleOpenDiscuss}','                      onQuickStatus={handleQuickStatus}`r`n                      onOpenDetail={handleOpenDetail}`r`n                      onOpenDiscuss={handleOpenDiscuss}'); $c=$c.Replace('                      onQuickStatus={onQuickStatus}`r`n                      onOpenDiscuss={onOpenDiscuss}','                      onQuickStatus={onQuickStatus}`r`n                      onOpenDetail={onOpenDetail}`r`n                      onOpenDiscuss={onOpenDiscuss}'); Set-Content -Path $p -Value $c -Encoding UTF8; Write-Output 'ok'"
+		},
+		{
+			"label": "fix-single-line-literal-block",
+			"type": "shell",
+			"command": "$p='c:/project/components/omes/work-management-page.tsx'; $c=Get-Content -Raw -Encoding UTF8 $p; $nl=[Environment]::NewLine; $old='          {/* Secondary actions */}`r`n <button`r`n onClick={() => onOpenDetail(task)}`r`n className=text-gray-400 hover:text-blue-600`r`n title=Chi tiết`r`n >`r`n <Maximize2 className=w-4 h-4 />`r`n </button>'; $new=\"          {/* Secondary actions */$nl          <button$nl            onClick={() => onOpenDetail(task)}$nl            className=\\\"text-gray-400 hover:text-blue-600\\\"$nl            title=\\\"Chi tiết\\\"$nl          >$nl            <Maximize2 className=\\\"w-4 h-4\\\" />$nl          </button>\"; $c=$c.Replace($old,$new); Set-Content -Path $p -Value $c -Encoding UTF8; Write-Output 'ok'"
+		},
+		{
+			"label": "remove-description-sublines",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$p1='components/omes/work-management-page.tsx'; $c1=Get-Content $p1 -Raw; $c1=$c1.Replace('{task.description && <p className=\"text-xs text-gray-400 truncate\">{task.description}</p>}',''); Set-Content -Path $p1 -Value $c1 -Encoding utf8; $p2='components/omes/project-detail-page.tsx'; $c2=Get-Content $p2 -Raw; $c2=$c2.Replace('<p className=\"text-gray-400 mt-0.5 truncate\">{r.description}</p>',''); $c2=$c2.Replace('{t.rootCause && <p className=\"text-gray-400 mt-0.5 truncate\">Nguyên nhân: {t.rootCause}</p>}',''); $c2=$c2.Replace('{r.email && <div className=\"text-gray-400 text-[11px]\">{r.email}</div>}',''); $c2=$c2.Replace('{r.backupPerson && <div className=\"text-gray-400 text-[11px]\">Backup: {r.backupPerson}</div>}',''); Set-Content -Path $p2 -Value $c2 -Encoding utf8; Write-Output 'done'"
+			]
+		},
+		{
+			"label": "remove-description-sublines-node",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"-e",
+				"const fs=require('fs');const p1='components/omes/work-management-page.tsx';let c1=fs.readFileSync(p1,'utf8');c1=c1.replace('{task.description && <p className=\"text-xs text-gray-400 truncate\">{task.description}</p>}','');fs.writeFileSync(p1,c1,'utf8');const p2='components/omes/project-detail-page.tsx';let c2=fs.readFileSync(p2,'utf8');c2=c2.replace('<p className=\"text-gray-400 mt-0.5 truncate\">{r.description}</p>','');c2=c2.replace('{t.rootCause && <p className=\"text-gray-400 mt-0.5 truncate\">Nguyên nhân: {t.rootCause}</p>}','');c2=c2.replace('{r.email && <div className=\"text-gray-400 text-[11px]\">{r.email}</div>}','');c2=c2.replace('{r.backupPerson && <div className=\"text-gray-400 text-[11px]\">Backup: {r.backupPerson}</div>}','');fs.writeFileSync(p2,c2,'utf8');console.log('done');"
+			]
+		},
+		{
+			"label": "remove-description-sublines-node2",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"-e",
+				"const fs=require(\"fs\");const p1=\"components/omes/work-management-page.tsx\";let c1=fs.readFileSync(p1,\"utf8\");c1=c1.replace(\"{task.description && <p className=\\\"text-xs text-gray-400 truncate\\\">{task.description}</p>}\",\"\");fs.writeFileSync(p1,c1,\"utf8\");const p2=\"components/omes/project-detail-page.tsx\";let c2=fs.readFileSync(p2,\"utf8\");c2=c2.replace(\"<p className=\\\"text-gray-400 mt-0.5 truncate\\\">{r.description}</p>\",\"\");c2=c2.replace(\"{t.rootCause && <p className=\\\"text-gray-400 mt-0.5 truncate\\\">Nguyên nhân: {t.rootCause}</p>}\",\"\");c2=c2.replace(\"{r.email && <div className=\\\"text-gray-400 text-[11px]\\\">{r.email}</div>}\",\"\");c2=c2.replace(\"{r.backupPerson && <div className=\\\"text-gray-400 text-[11px]\\\">Backup: {r.backupPerson}</div>}\",\"\");fs.writeFileSync(p2,c2,\"utf8\");console.log(\"done\");"
+			]
+		},
+		{
+			"label": "run-remove-description-sublines-script",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"tmp-remove-description-sublines.js"
+			]
+		},
+		{
+			"label": "cleanup-temp-script",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"del",
+				"/q",
+				"tmp-remove-description-sublines.js"
+			]
+		},
+		{
+			"label": "compact-drawer",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"tmp-compact-drawer.js"
+			]
+		}
+	]
+}

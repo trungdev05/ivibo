@@ -1,0 +1,1176 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum GlobalRole {
+  super_admin
+  admin
+  manager
+  employee
+  viewer
+}
+
+enum ProjectStatus {
+  not_started
+  in_progress
+  on_hold
+  delayed
+  completed
+  cancelled
+}
+
+enum ProjectHealth {
+  green
+  yellow
+  red
+}
+
+enum ProjectType {
+  omes
+  it
+  erp
+  internal
+  generic
+}
+
+enum PhaseStatus {
+  planned
+  in_progress
+  completed
+  delayed
+}
+
+enum Priority {
+  low
+  medium
+  high
+  critical
+}
+
+enum IssueStatus {
+  open
+  in_progress
+  resolved
+  closed
+  reopened
+  sla_breached
+}
+
+enum RiskLevel {
+  low
+  medium
+  high
+  critical
+}
+
+enum RiskStatus {
+  open
+  mitigating
+  closed
+  accepted
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+  cancelled
+}
+
+enum AttendanceType {
+  check_in
+  check_out
+  leave
+  overtime
+}
+
+enum OkrStatus {
+  on_track
+  at_risk
+  behind
+  completed
+}
+
+enum ViewType {
+  grid
+  kanban
+  calendar
+  gallery
+  timeline
+}
+
+enum FieldType {
+  text
+  number
+  select
+  multi_select
+  date
+  checkbox
+  user
+  url
+  formula
+}
+
+enum ModuleCode {
+  PROJECT_MANAGEMENT
+  PURCHASING
+  APPROVAL
+  ATTENDANCE
+  OKR
+}
+
+// ─────────────────────────────────────────────
+// CORE: Users & Org
+// ─────────────────────────────────────────────
+
+model User {
+  id              String   @id @default(uuid()) @db.Uuid
+  email           String   @unique
+  fullName        String   @map("full_name")
+  avatarUrl       String?  @map("avatar_url")
+  phone           String?
+  departmentId    String?  @map("department_id") @db.Uuid
+  managerId       String?  @map("manager_id") @db.Uuid
+  globalRole      GlobalRole @default(employee)
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  department      Department?         @relation(fields: [departmentId], references: [id])
+  manager         User?               @relation("UserManager", fields: [managerId], references: [id])
+  reports         User[]              @relation("UserManager")
+  modulePermissions UserModulePermission[]
+  projectMembers  ProjectMember[]
+  ownedProjects   Project[]           @relation("ProjectOwner")
+  assignedIssues  Issue[]             @relation("IssueAssignee")
+  reportedIssues  Issue[]             @relation("IssueReporter")
+  resourceAllocs  ResourceAllocation[]
+  approvalRequests ApprovalRequest[]  @relation("ApprovalRequester")
+  approvalActions  ApprovalAction[]
+  attendanceRecords AttendanceRecord[]
+  objectives      Objective[]
+  auditLogs       AuditLog[]
+  comments        Comment[]
+
+  @@map("users")
+}
+
+model Department {
+  id          String  @id @default(uuid()) @db.Uuid
+  name        String
+  code        String  @unique
+  parentId    String? @map("parent_id") @db.Uuid
+  headId      String? @map("head_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  parent      Department?  @relation("DeptParent", fields: [parentId], references: [id])
+  children    Department[] @relation("DeptParent")
+  users       User[]
+
+  @@map("departments")
+}
+
+// ─────────────────────────────────────────────
+// MODULE REGISTRY
+// ─────────────────────────────────────────────
+
+model PlatformModule {
+  id                String     @id @default(uuid()) @db.Uuid
+  code              ModuleCode @unique
+  name              String
+  description       String?
+  enabled           Boolean    @default(true)
+  icon              String?
+  navigationConfig  Json?      @map("navigation_config")
+  permissionConfig  Json?      @map("permission_config")
+  order             Int        @default(0)
+  createdAt         DateTime   @default(now()) @map("created_at")
+
+  userPermissions   UserModulePermission[]
+
+  @@map("platform_modules")
+}
+
+model UserModulePermission {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  moduleCode ModuleCode @map("module_code")
+  canView    Boolean  @default(true)  @map("can_view")
+  canCreate  Boolean  @default(false) @map("can_create")
+  canUpdate  Boolean  @default(false) @map("can_update")
+  canDelete  Boolean  @default(false) @map("can_delete")
+  canApprove Boolean  @default(false) @map("can_approve")
+  canExport  Boolean  @default(false) @map("can_export")
+  canConfig  Boolean  @default(false) @map("can_config")
+
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module     PlatformModule @relation(fields: [moduleCode], references: [code], onDelete: Cascade)
+
+  @@unique([userId, moduleCode])
+  @@map("user_module_permissions")
+}
+
+// ─────────────────────────────────────────────
+// PROJECT MANAGEMENT MODULE
+// ─────────────────────────────────────────────
+
+model ProjectTypeConfig {
+  id              String      @id @default(uuid()) @db.Uuid
+  type            ProjectType @unique
+  label           String
+  customFields    Json?       @map("custom_fields")   // [{key, label, type}]
+  workflowConfig  Json?       @map("workflow_config")
+  moduleList      Json?       @map("module_list")      // list of domain sub-modules
+  defaultPhases   Json?       @map("default_phases")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  projects        Project[]
+
+  @@map("project_type_configs")
+}
+
+model Project {
+  id              String        @id @default(uuid()) @db.Uuid
+  code            String        @unique
+  name            String
+  description     String?
+  type            ProjectType   @default(generic)
+  typeConfigId    String?       @map("type_config_id") @db.Uuid
+  customer        String?
+  industry        String?
+  ownerId         String?       @map("owner_id") @db.Uuid
+  startDate       DateTime?     @map("start_date") @db.Date
+  endDate         DateTime?     @map("end_date") @db.Date
+  status          ProjectStatus @default(not_started)
+  health          ProjectHealth @default(green)
+  priority        Priority      @default(medium)
+  budget          Decimal       @default(0) @db.Decimal(14, 2)
+  actualCost      Decimal       @default(0) @map("actual_cost") @db.Decimal(14, 2)
+  progress        Int           @default(0)
+  // EVM fields (used by OMES/ERP types)
+  pv              Decimal?      @db.Decimal(14, 2)
+  ev              Decimal?      @db.Decimal(14, 2)
+  ac              Decimal?      @db.Decimal(14, 2)
+  cpi             Decimal?      @db.Decimal(10, 4)
+  spi             Decimal?      @db.Decimal(10, 4)
+  // Custom fields stored as JSON (per type config)
+  customData      Json?         @map("custom_data")
+  notes           String?
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  typeConfig      ProjectTypeConfig? @relation(fields: [typeConfigId], references: [id])
+  owner           User?              @relation("ProjectOwner", fields: [ownerId], references: [id])
+  members         ProjectMember[]
+  phases          ProjectPhase[]
+  issues          Issue[]
+  risks           Risk[]
+  resources       ResourceAllocation[]
+  dynamicTables   DynamicTable[]
+  approvalRequests ApprovalRequest[]
+  activityLogs    AuditLog[]
+
+  @@index([type])
+  @@index([status])
+  @@map("projects")
+}
+
+model ProjectMember {
+  id          String   @id @default(uuid()) @db.Uuid
+  projectId   String   @map("project_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  role        String   // "Project Manager", "Member", "Viewer", "Stakeholder"
+  joinDate    DateTime? @map("join_date") @db.Date
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+model ProjectPhase {
+  id          String      @id @default(uuid()) @db.Uuid
+  projectId   String      @map("project_id") @db.Uuid
+  name        String
+  order       Int         @default(0)
+  startDate   DateTime?   @map("start_date") @db.Date
+  endDate     DateTime?   @map("end_date") @db.Date
+  status      PhaseStatus @default(planned)
+  owner       String?
+  progress    Int         @default(0)
+  notes       String?
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("project_phases")
+}
+
+model Issue {
+  id              String      @id @default(uuid()) @db.Uuid
+  code            String      @unique
+  projectId       String      @map("project_id") @db.Uuid
+  title           String
+  description     String?
+  type            String      // Bug, Issue, Support, Question
+  severity        String      // Critical, High, Medium, Low
+  priority        Priority    @default(medium)
+  status          IssueStatus @default(open)
+  assigneeId      String?     @map("assignee_id") @db.Uuid
+  reporterId      String?     @map("reporter_id") @db.Uuid
+  dueDate         DateTime?   @map("due_date") @db.Date
+  resolvedAt      DateTime?   @map("resolved_at")
+  rootCause       String?     @map("root_cause")
+  resolution      String?
+  customData      Json?       @map("custom_data")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  project         Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee        User?       @relation("IssueAssignee", fields: [assigneeId], references: [id])
+  reporter        User?       @relation("IssueReporter", fields: [reporterId], references: [id])
+  comments        Comment[]
+
+  @@index([projectId])
+  @@index([status])
+  @@map("issues")
+}
+
+model Risk {
+  id              String     @id @default(uuid()) @db.Uuid
+  code            String     @unique
+  projectId       String     @map("project_id") @db.Uuid
+  category        String
+  title           String
+  description     String?
+  probability     Int        // 1–5
+  impact          Int        // 1–5
+  score           Int        // probability * impact
+  level           RiskLevel
+  status          RiskStatus @default(open)
+  owner           String?
+  mitigation      String?
+  contingency     String?
+  dueDate         DateTime?  @map("due_date") @db.Date
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  project         Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("risks")
+}
+
+model ResourceAllocation {
+  id                 String   @id @default(uuid()) @db.Uuid
+  projectId          String   @map("project_id") @db.Uuid
+  userId             String   @map("user_id") @db.Uuid
+  role               String
+  allocationPercent  Int      @default(100) @map("allocation_percent")
+  availability       Int      @default(100)
+  startDate          DateTime? @map("start_date") @db.Date
+  endDate            DateTime? @map("end_date") @db.Date
+  estimatedHours     Int      @default(0) @map("estimated_hours")
+  actualHours        Int      @default(0) @map("actual_hours")
+  hourlyRate         Decimal  @default(0) @map("hourly_rate") @db.Decimal(10, 2)
+  notes              String?
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("resource_allocations")
+}
+
+// ─────────────────────────────────────────────
+// DYNAMIC TABLE (generic work table)
+// Used for: Tasks, Daily Logs, Action Items
+// ─────────────────────────────────────────────
+
+model DynamicTable {
+  id          String   @id @default(uuid()) @db.Uuid
+  projectId   String?  @map("project_id") @db.Uuid
+  name        String
+  description String?
+  tableType   String   @default("generic") @map("table_type") // tasks, daily_log, action_items
+  position    Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  project     Project?          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fields      DynamicField[]
+  records     DynamicRecord[]
+  views       DynamicView[]
+
+  @@index([projectId])
+  @@map("dynamic_tables")
+}
+
+model DynamicField {
+  id          String    @id @default(uuid()) @db.Uuid
+  tableId     String    @map("table_id") @db.Uuid
+  name        String
+  type        FieldType
+  options     Json?     // for select/multi_select: [{value, label, color}]
+  isRequired  Boolean   @default(false) @map("is_required")
+  isSystem    Boolean   @default(false) @map("is_system")  // protected fields
+  position    Int       @default(0)
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  table       DynamicTable   @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  cells       DynamicCell[]
+  viewFilters DynamicViewFilter[]
+  viewSorts   DynamicViewSort[]
+
+  @@index([tableId])
+  @@map("dynamic_fields")
+}
+
+model DynamicRecord {
+  id          String   @id @default(uuid()) @db.Uuid
+  tableId     String   @map("table_id") @db.Uuid
+  position    Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  table       DynamicTable  @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  cells       DynamicCell[]
+
+  @@index([tableId])
+  @@map("dynamic_records")
+}
+
+model DynamicCell {
+  id        String   @id @default(uuid()) @db.Uuid
+  recordId  String   @map("record_id") @db.Uuid
+  fieldId   String   @map("field_id") @db.Uuid
+  value     Json?
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  record    DynamicRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  field     DynamicField  @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@unique([recordId, fieldId])
+  @@map("dynamic_cells")
+}
+
+model DynamicView {
+  id        String   @id @default(uuid()) @db.Uuid
+  tableId   String   @map("table_id") @db.Uuid
+  name      String
+  type      ViewType
+  config    Json?
+  position  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  table     DynamicTable        @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  filters   DynamicViewFilter[]
+  sorts     DynamicViewSort[]
+
+  @@index([tableId])
+  @@map("dynamic_views")
+}
+
+model DynamicViewFilter {
+  id        String       @id @default(uuid()) @db.Uuid
+  viewId    String       @map("view_id") @db.Uuid
+  fieldId   String       @map("field_id") @db.Uuid
+  operator  String
+  value     Json?
+  order     Int          @default(0)
+  view      DynamicView  @relation(fields: [viewId], references: [id], onDelete: Cascade)
+  field     DynamicField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@map("dynamic_view_filters")
+}
+
+model DynamicViewSort {
+  id        String       @id @default(uuid()) @db.Uuid
+  viewId    String       @map("view_id") @db.Uuid
+  fieldId   String       @map("field_id") @db.Uuid
+  direction String
+  order     Int          @default(0)
+  view      DynamicView  @relation(fields: [viewId], references: [id], onDelete: Cascade)
+  field     DynamicField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@map("dynamic_view_sorts")
+}
+
+// ─────────────────────────────────────────────
+// APPROVAL MODULE
+// ─────────────────────────────────────────────
+
+model ApprovalWorkflow {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  moduleCode  ModuleCode @map("module_code")
+  entityType  String   @map("entity_type") // purchase_request, leave_request, etc.
+  steps       Json     // [{order, approverRole, required}]
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  requests    ApprovalRequest[]
+
+  @@map("approval_workflows")
+}
+
+model ApprovalRequest {
+  id          String         @id @default(uuid()) @db.Uuid
+  workflowId  String?        @map("workflow_id") @db.Uuid
+  projectId   String?        @map("project_id") @db.Uuid
+  requesterId String         @map("requester_id") @db.Uuid
+  entityType  String         @map("entity_type")
+  entityId    String?        @map("entity_id") @db.Uuid
+  title       String
+  description String?
+  data        Json?
+  status      ApprovalStatus @default(pending)
+  currentStep Int            @default(1) @map("current_step")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  workflow    ApprovalWorkflow? @relation(fields: [workflowId], references: [id])
+  project     Project?          @relation(fields: [projectId], references: [id])
+  requester   User              @relation("ApprovalRequester", fields: [requesterId], references: [id])
+  actions     ApprovalAction[]
+
+  @@index([status])
+  @@map("approval_requests")
+}
+
+model ApprovalAction {
+  id          String         @id @default(uuid()) @db.Uuid
+  requestId   String         @map("request_id") @db.Uuid
+  approverId  String         @map("approver_id") @db.Uuid
+  step        Int
+  action      ApprovalStatus
+  comment     String?
+  actedAt     DateTime       @default(now()) @map("acted_at")
+
+  request     ApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approver    User            @relation(fields: [approverId], references: [id])
+
+  @@map("approval_actions")
+}
+
+// ─────────────────────────────────────────────
+// PURCHASING MODULE
+// ─────────────────────────────────────────────
+
+model PurchaseRequest {
+  id           String         @id @default(uuid()) @db.Uuid
+  code         String         @unique
+  projectId    String?        @map("project_id") @db.Uuid
+  requesterId  String         @map("requester_id") @db.Uuid
+  title        String
+  description  String?
+  items        Json           // [{name, quantity, unit, estimatedCost}]
+  totalAmount  Decimal        @default(0) @map("total_amount") @db.Decimal(14, 2)
+  currency     String         @default("USD")
+  status       ApprovalStatus @default(pending)
+  vendor       String?
+  expectedDate DateTime?      @map("expected_date") @db.Date
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("purchase_requests")
+}
+
+// ─────────────────────────────────────────────
+// ATTENDANCE MODULE
+// ─────────────────────────────────────────────
+
+model AttendanceRecord {
+  id          String         @id @default(uuid()) @db.Uuid
+  userId      String         @map("user_id") @db.Uuid
+  date        DateTime       @db.Date
+  type        AttendanceType
+  checkIn     DateTime?      @map("check_in")
+  checkOut    DateTime?      @map("check_out")
+  hoursWorked Decimal?       @map("hours_worked") @db.Decimal(5, 2)
+  note        String?
+  status      String         @default("pending") // pending, approved, rejected
+  createdAt   DateTime       @default(now()) @map("created_at")
+
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+  @@map("attendance_records")
+}
+
+// ─────────────────────────────────────────────
+// OKR MODULE
+// ─────────────────────────────────────────────
+
+model Objective {
+  id           String    @id @default(uuid()) @db.Uuid
+  ownerId      String    @map("owner_id") @db.Uuid
+  departmentId String?   @map("department_id") @db.Uuid
+  parentId     String?   @map("parent_id") @db.Uuid
+  title        String
+  description  String?
+  period       String    // "Q1 2026", "2026", etc.
+  startDate    DateTime? @map("start_date") @db.Date
+  endDate      DateTime? @map("end_date") @db.Date
+  progress     Int       @default(0)
+  status       OkrStatus @default(on_track)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  owner        User        @relation(fields: [ownerId], references: [id])
+  parent       Objective?  @relation("ObjParent", fields: [parentId], references: [id])
+  children     Objective[] @relation("ObjParent")
+  keyResults   KeyResult[]
+
+  @@map("objectives")
+}
+
+model KeyResult {
+  id            String    @id @default(uuid()) @db.Uuid
+  objectiveId   String    @map("objective_id") @db.Uuid
+  title         String
+  description   String?
+  targetValue   Decimal   @map("target_value") @db.Decimal(14, 2)
+  currentValue  Decimal   @default(0) @map("current_value") @db.Decimal(14, 2)
+  unit          String?
+  progress      Int       @default(0)
+  status        OkrStatus @default(on_track)
+  dueDate       DateTime? @map("due_date") @db.Date
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  objective     Objective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+
+  @@index([objectiveId])
+  @@map("key_results")
+}
+
+// ─────────────────────────────────────────────
+// SHARED: Comments, Attachments, Audit
+// ─────────────────────────────────────────────
+
+model Comment {
+  id         String   @id @default(uuid()) @db.Uuid
+  authorId   String   @map("author_id") @db.Uuid
+  entityType String   @map("entity_type") // issue, project, etc.
+  entityId   String   @map("entity_id") @db.Uuid
+  content    String
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  author     User     @relation(fields: [authorId], references: [id])
+  // Optional direct links for query convenience
+  issue      Issue?   @relation(fields: [entityId], references: [id], map: "comment_issue_fk")
+
+  @@index([entityType, entityId])
+  @@map("comments")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  projectId  String?  @map("project_id") @db.Uuid
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id") @db.Uuid
+  action     String   // created, updated, deleted, approved
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user       User?    @relation(fields: [userId], references: [id])
+  project    Project? @relation(fields: [projectId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([projectId])
+  @@map("audit_logs")
+}
+
+
+enum WorkspaceRole {
+  owner
+  admin
+  editor
+  viewer
+}
+
+enum ProjectStatus {
+  not_started
+  in_progress
+  delayed
+  completed
+}
+
+enum Priority {
+  low
+  medium
+  high
+  critical
+}
+
+enum ModuleStatus {
+  backlog
+  doing
+  blocked
+  uat
+  done
+}
+
+enum IssueStatus {
+  open
+  doing
+  done
+  sla_breached
+}
+
+enum RiskStatus {
+  open
+  mitigating
+  closed
+}
+
+enum SlaStatus {
+  met
+  breached
+}
+
+enum ViewType {
+  grid
+  kanban
+  calendar
+  gallery
+  timeline
+}
+
+enum FieldType {
+  text
+  number
+  select
+  multi_select
+  date
+  checkbox
+  user
+}
+
+model User {
+  id             String           @id @default(uuid()) @db.Uuid
+  email          String           @unique
+  fullName       String?          @map("full_name")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  memberships    WorkspaceMember[]
+  comments       Comment[]
+  auditLogs      AuditLog[]
+  ownedProjects  Project[]        @relation("ProjectOwner")
+  ownedModules   OmesModule[]     @relation("ModuleOwner")
+  ownedIssues    Issue[]          @relation("IssueOwner")
+  reportedIssues Issue[]          @relation("IssueReporter")
+
+  @@map("users")
+}
+
+model Workspace {
+  id          String            @id @default(uuid()) @db.Uuid
+  name        String
+  icon        String?
+  createdAt   DateTime          @default(now()) @map("created_at")
+  members     WorkspaceMember[]
+  bases       Base[]
+  projects    Project[]
+  auditLogs   AuditLog[]
+  attachments Attachment[]
+
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String        @id @default(uuid()) @db.Uuid
+  workspaceId String        @map("workspace_id") @db.Uuid
+  userId      String        @map("user_id") @db.Uuid
+  role        WorkspaceRole
+  createdAt   DateTime      @default(now()) @map("created_at")
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@map("workspace_members")
+}
+
+model Base {
+  id           String       @id @default(uuid()) @db.Uuid
+  workspaceId  String       @map("workspace_id") @db.Uuid
+  name         String
+  description  String?
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+  workspace    Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  tables       Table[]
+  project      Project?
+
+  @@map("bases")
+}
+
+model Project {
+  id             String          @id @default(uuid()) @db.Uuid
+  workspaceId    String          @map("workspace_id") @db.Uuid
+  baseId         String?         @unique @map("base_id") @db.Uuid
+  projectCode    String          @unique @map("project_code")
+  projectName    String          @map("project_name")
+  customer       String
+  industry       String?
+  pmOwnerId      String?         @map("pm_owner_id") @db.Uuid
+  startDate      DateTime?       @map("start_date") @db.Date
+  endDate        DateTime?       @map("end_date") @db.Date
+  status         ProjectStatus   @default(not_started)
+  priority       Priority        @default(medium)
+  projectPhase   String?         @map("project_phase")
+  bacBudget      Decimal         @default(0) @map("bac_budget") @db.Decimal(14, 2)
+  pv             Decimal         @default(0) @db.Decimal(14, 2)
+  ev             Decimal         @default(0) @db.Decimal(14, 2)
+  ac             Decimal         @default(0) @db.Decimal(14, 2)
+  cpi            Decimal         @default(0) @db.Decimal(10, 4)
+  spi            Decimal         @default(0) @db.Decimal(10, 4)
+  overallHealth  String?         @map("overall_health")
+  notes          String?
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  pmOwner        User?           @relation("ProjectOwner", fields: [pmOwnerId], references: [id])
+  base           Base?           @relation(fields: [baseId], references: [id], onDelete: SetNull)
+  modules        OmesModule[]
+  dailyUpdates   DailyUpdate[]
+  issues         Issue[]
+  risks          Risk[]
+  resources      Resource[]
+  slaRequests    SlaRequest[]
+  monthlyReports MonthlyReport[]
+
+  @@index([workspaceId])
+  @@map("projects")
+}
+
+model Table {
+  id             String    @id @default(uuid()) @db.Uuid
+  baseId         String    @map("base_id") @db.Uuid
+  name           String
+  description    String?
+  position       Int       @default(0)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  base           Base      @relation(fields: [baseId], references: [id], onDelete: Cascade)
+  fields         Field[]
+  records        Record[]
+  views          View[]
+  comments       Comment[]
+  attachments    Attachment[]
+
+  @@index([baseId])
+  @@map("tables")
+}
+
+model Field {
+  id             String    @id @default(uuid()) @db.Uuid
+  tableId         String    @map("table_id") @db.Uuid
+  name            String
+  type            FieldType
+  options         Json?
+  isRequired      Boolean   @default(false) @map("is_required")
+  position        Int       @default(0)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  table           Table     @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  cells           Cell[]
+  viewFilters     ViewFilter[]
+  viewSorts       ViewSort[]
+
+  @@index([tableId])
+  @@map("fields")
+}
+
+model Record {
+  id             String    @id @default(uuid()) @db.Uuid
+  tableId         String    @map("table_id") @db.Uuid
+  position        Int       @default(0)
+  createdById     String?   @map("created_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  table           Table     @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  cells           Cell[]
+
+  @@index([tableId])
+  @@map("records")
+}
+
+model Cell {
+  id             String    @id @default(uuid()) @db.Uuid
+  recordId       String    @map("record_id") @db.Uuid
+  fieldId        String    @map("field_id") @db.Uuid
+  value          Json?
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  record         Record    @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  field          Field     @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@unique([recordId, fieldId])
+  @@map("cells")
+}
+
+model View {
+  id             String       @id @default(uuid()) @db.Uuid
+  tableId         String       @map("table_id") @db.Uuid
+  name            String
+  type            ViewType
+  config          Json?
+  position        Int          @default(0)
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  table           Table        @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  filters         ViewFilter[]
+  sorts           ViewSort[]
+
+  @@index([tableId])
+  @@map("views")
+}
+
+model ViewFilter {
+  id             String    @id @default(uuid()) @db.Uuid
+  viewId         String    @map("view_id") @db.Uuid
+  fieldId        String    @map("field_id") @db.Uuid
+  operator       String
+  value          Json?
+  order          Int       @default(0)
+  view           View      @relation(fields: [viewId], references: [id], onDelete: Cascade)
+  field          Field     @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@index([viewId])
+  @@map("view_filters")
+}
+
+model ViewSort {
+  id             String    @id @default(uuid()) @db.Uuid
+  viewId         String    @map("view_id") @db.Uuid
+  fieldId        String    @map("field_id") @db.Uuid
+  direction      String
+  order          Int       @default(0)
+  view           View      @relation(fields: [viewId], references: [id], onDelete: Cascade)
+  field          Field     @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@index([viewId])
+  @@map("view_sorts")
+}
+
+model OmesModule {
+  id               String        @id @default(uuid()) @db.Uuid
+  projectId        String        @map("project_id") @db.Uuid
+  moduleName       String        @map("module_name")
+  ownerId          String?       @map("owner_id") @db.Uuid
+  status           ModuleStatus  @default(backlog)
+  plannedProgress  Int           @default(0) @map("planned_progress")
+  actualProgress   Int           @default(0) @map("actual_progress")
+  startDate        DateTime?     @map("start_date") @db.Date
+  dueDate          DateTime?     @map("due_date") @db.Date
+  uatStatus        String?       @map("uat_status")
+  bugCount         Int           @default(0) @map("bug_count")
+  releaseStatus    String?       @map("release_status")
+  notes            String?
+  project          Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner            User?         @relation("ModuleOwner", fields: [ownerId], references: [id])
+  dailyUpdates     DailyUpdate[]
+  issues           Issue[]
+
+  @@index([projectId])
+  @@map("modules")
+}
+
+model DailyUpdate {
+  id               String      @id @default(uuid()) @db.Uuid
+  date             DateTime    @db.Date
+  projectId        String      @map("project_id") @db.Uuid
+  moduleId         String?     @map("module_id") @db.Uuid
+  workDoneToday    String      @map("work_done_today")
+  planForTomorrow  String      @map("plan_for_tomorrow")
+  blockers         String?
+  owner            String
+  status           String
+  relatedIssues    Json?       @map("related_issues")
+  customerFeedback String?     @map("customer_feedback")
+  internalNotes    String?     @map("internal_notes")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  project          Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  module           OmesModule? @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@map("daily_updates")
+}
+
+model Issue {
+  id                String      @id @default(uuid()) @db.Uuid
+  issueCode         String      @unique @map("issue_code")
+  projectId         String      @map("project_id") @db.Uuid
+  moduleId          String?     @map("module_id") @db.Uuid
+  issueType         String      @map("issue_type")
+  description       String
+  severity          String
+  priority          String
+  ownerId           String?     @map("owner_id") @db.Uuid
+  reporterId        String?     @map("reporter_id") @db.Uuid
+  createdDate       DateTime    @default(now()) @map("created_date")
+  dueDate           DateTime?   @map("due_date") @db.Date
+  slaTargetHours    Int         @default(72) @map("sla_target_hours")
+  responseTimeHours Int         @default(0) @map("response_time_hours")
+  status            IssueStatus @default(open)
+  rootCause         String?     @map("root_cause")
+  countermeasure    String?
+  resolution        String?
+  relatedTasks      String?     @map("related_tasks")
+  project           Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  module            OmesModule? @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  owner             User?       @relation("IssueOwner", fields: [ownerId], references: [id])
+  reporter          User?       @relation("IssueReporter", fields: [reporterId], references: [id])
+
+  @@index([projectId])
+  @@map("issues")
+}
+
+model Risk {
+  id             String      @id @default(uuid()) @db.Uuid
+  riskCode       String      @unique @map("risk_code")
+  projectId      String      @map("project_id") @db.Uuid
+  riskGroup      String      @map("risk_group")
+  description    String
+  probability    Int
+  impact         Int
+  riskScore      Int         @map("risk_score")
+  riskLevel      String      @map("risk_level")
+  owner          String
+  mitigationPlan String      @map("mitigation_plan")
+  dueDate        DateTime?   @map("due_date") @db.Date
+  status         RiskStatus  @default(open)
+  createdAt      DateTime    @default(now()) @map("created_at")
+  project        Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("risks")
+}
+
+model Resource {
+  id              String    @id @default(uuid()) @db.Uuid
+  person          String
+  role            String
+  projectId       String    @map("project_id") @db.Uuid
+  allocationType  String    @map("allocation_type")
+  fullOrPartTime  String    @map("full_or_part_time")
+  startDate       DateTime? @map("start_date") @db.Date
+  endDate         DateTime? @map("end_date") @db.Date
+  availability    Int
+  skill           String?
+  responsibility  String?
+  backupPerson    String?   @map("backup_person")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("resources")
+}
+
+model SlaRequest {
+  id                      String     @id @default(uuid()) @db.Uuid
+  requestCode             String     @unique @map("request_code")
+  projectId               String     @map("project_id") @db.Uuid
+  customer                String
+  requestType             String     @map("request_type")
+  requestDateTime         DateTime   @map("request_date_time")
+  firstResponseDateTime   DateTime?  @map("first_response_date_time")
+  targetSlaHours          Int        @map("target_sla_hours")
+  actualResponseTimeHours Int        @default(0) @map("actual_response_time_hours")
+  slaStatus               SlaStatus  @default(met) @map("sla_status")
+  owner                   String
+  escalationLevel         Int        @default(0) @map("escalation_level")
+  notes                   String?
+  createdAt               DateTime   @default(now()) @map("created_at")
+  project                 Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("sla_requests")
+}
+
+model MonthlyReport {
+  id              String    @id @default(uuid()) @db.Uuid
+  month           String
+  projectId       String    @map("project_id") @db.Uuid
+  plannedProgress Int       @default(0) @map("planned_progress")
+  actualProgress  Int       @default(0) @map("actual_progress")
+  bac             Decimal   @default(0) @db.Decimal(14, 2)
+  pv              Decimal   @default(0) @db.Decimal(14, 2)
+  ev              Decimal   @default(0) @db.Decimal(14, 2)
+  ac              Decimal   @default(0) @db.Decimal(14, 2)
+  cpi             Decimal   @default(0) @db.Decimal(10, 4)
+  spi             Decimal   @default(0) @db.Decimal(10, 4)
+  riskSummary     String?   @map("risk_summary")
+  resourceGap     String?   @map("resource_gap")
+  issuesSummary   String?   @map("issues_summary")
+  nextMonthPlan   String?   @map("next_month_plan")
+  recommendations String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, month])
+  @@map("monthly_reports")
+}
+
+model Comment {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String?   @map("workspace_id") @db.Uuid
+  tableId     String?   @map("table_id") @db.Uuid
+  issueId     String?   @map("issue_id") @db.Uuid
+  content     String
+  authorId    String?   @map("author_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  table       Table?    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  author      User?     @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@map("comments")
+}
+
+model Attachment {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String?   @map("workspace_id") @db.Uuid
+  tableId     String?   @map("table_id") @db.Uuid
+  issueId     String?   @map("issue_id") @db.Uuid
+  fileName    String    @map("file_name")
+  fileUrl     String    @map("file_url")
+  uploadedBy  String?   @map("uploaded_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  table       Table?    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@map("attachments")
+}
+
+model AuditLog {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String?   @map("workspace_id") @db.Uuid
+  userId      String?   @map("user_id") @db.Uuid
+  action      String
+  entityType  String    @map("entity_type")
+  entityId    String?   @map("entity_id")
+  payload     Json?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@map("audit_logs")
+}
